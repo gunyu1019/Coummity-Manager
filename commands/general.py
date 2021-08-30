@@ -7,7 +7,7 @@ from module import commands
 class Command:
     def __init__(self, bot):
         self.client = bot
-        self.color = 0xffd619
+        self.color = 0x0070ff
 
     @commands.command(aliases=['핑'], permission=4)
     async def ping(self, ctx):

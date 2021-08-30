@@ -2,7 +2,7 @@ import discord
 
 
 def is_owner(author, guild: discord.Guild):
-    return author.id == guild.owner_id
+    return author == guild.owner_id
 
 
 def is_admin(author):

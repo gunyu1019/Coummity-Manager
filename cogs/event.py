@@ -12,7 +12,7 @@ logger_guild = logging.getLogger(__name__ + ".guild")
 
 
 class Events(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: discord.Client):
         self.bot = bot
 
     @commands.Cog.listener()
@@ -21,7 +21,13 @@ class Events(commands.Cog):
         logger.info(f"디스코드봇 이름: {self.bot.user.name}")
         logger.info(f"디스코드봇 ID: {str(self.bot.user.id)}")
         logger.info(f"디스코드봇 버전: {discord.__version__}")
-        print('------------')
+
+        await self.bot.change_presence(
+            status=discord.Status.online,
+            activity=discord.Game(
+                name="오늘도 힘차게 서버를 관리해보자!"
+            )
+        )
 
     @commands.Cog.listener()
     async def on_command(self, ctx: Union[SlashContext, Message]):

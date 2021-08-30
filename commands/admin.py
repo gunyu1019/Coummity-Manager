@@ -28,7 +28,7 @@ def insert_returns(body):
 class Command:
     def __init__(self, bot):
         self.client = bot
-        self.color = 0xffd619
+        self.color = 0x0070ff
 
     @_command.command(aliases=["디버그"], permission=1, interaction=False)
     async def debug(self, ctx):

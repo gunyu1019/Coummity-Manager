@@ -7,7 +7,6 @@ from discord.ext import commands
 from discord.state import ConnectionState
 from typing import Union, List, Dict
 
-from config.config import parser
 from module.interaction import SlashContext, ComponentsContext
 from module.message import Message
 from module.commands import Command
