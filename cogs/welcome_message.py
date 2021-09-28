@@ -23,20 +23,19 @@ from discord.ext import commands
 from discord.state import ConnectionState
 
 from config.config import parser
-from module.message import Channel
+from module.message import MessageSendable
 
 logger = logging.getLogger(__name__)
-DBS = None
 
 
-class SocketReceive(commands.Cog):
+class WelcomeMessage(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._connection: ConnectionState = getattr(bot, "_connection")
         self.channel_discord = self._connection.get_channel(id=parser.getint("Channel", "welcome_message"))
 
         if self.channel_discord is not None:
-            self.channel = Channel(
+            self.channel = MessageSendable(
                 state=self._connection,
                 channel=self.channel_discord
             )
@@ -50,6 +49,7 @@ class SocketReceive(commands.Cog):
             name="{}#{}님 환영합니다!".format(member.name, member.discriminator),
             icon_url=str(guild.icon_url_as(format="png"))
         )
+        embed.set_thumbnail(url=member.avatar.url)
 
         member_role_id = parser.getint("Role", "member")
         member_role = guild.get_role(member_role_id)
@@ -62,4 +62,4 @@ class SocketReceive(commands.Cog):
 
 
 def setup(client):
-    client.add_cog(SocketReceive(client))
+    client.add_cog(WelcomeMessage(client))

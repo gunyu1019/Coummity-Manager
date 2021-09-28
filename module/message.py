@@ -21,19 +21,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import inspect
 import discord
 
 from discord.state import ConnectionState
-from typing import List, Union
+from discord.enums import try_enum
+from typing import List, Union, Optional
+from datetime import datetime
 
 from module.components import ActionRow, Button, Selection, from_payload
 from module.errors import InvalidArgument
 from module.http import HttpClient
-from utils.prefix import get_prefix
 
 
 def _files_to_form(files: list, payload: dict):
-    form = [{'name': 'payload_json', 'value': discord.utils.to_json(payload)}]
+    form = [{'name': 'payload_json', 'value': getattr(discord.utils, "_to_json")(payload)}]
     if len(files) == 1:
         file = files[0]
         form.append(
@@ -101,22 +103,6 @@ class Message(discord.Message):
         self.components = from_payload(data.get("components", []))
         self.http = HttpClient(http=self._state.http)
 
-        options = self.content.split()
-
-        if len(options) >= 1:
-            self.name = options[0]
-        else:
-            self.name = None
-
-        if len(options) >= 2:
-            self.options = self.content.split()[1:]
-        else:
-            self.options = []
-
-    @property
-    def prefix(self):
-        return get_prefix(None, self)[0]
-
     async def send(
             self,
             content=None,
@@ -129,8 +115,8 @@ class Message(discord.Message):
             allowed_mentions: discord.AllowedMentions = None,
             components: List[Union[ActionRow, Button, Selection]] = None
     ):
-        channel = Channel(state=self._state, channel=self.channel)
-        await channel.send(
+        channel = MessageSendable(state=self._state, channel=self.channel)
+        return await channel.send(
             content=content,
             tts=tts,
             embed=embed,
@@ -193,8 +179,48 @@ class Message(discord.Message):
         return
 
 
-class Channel:
-    def __init__(self, state: ConnectionState, channel: Union[discord.TextChannel, discord.DMChannel]):
+class MessageDelete:
+    def __init__(self, data: dict, state: ConnectionState, bulk: bool = False):
+        self.id = data["id"] if not bulk else data["ids"]
+        self.channel_id = int(data["channel_id"])
+        self.guild_id = int(data.get("guild_id"))
+
+        self._state = state
+
+    @property
+    def guild(self):
+        return getattr(self._state, "_get_guild")(int(self.guild_id))
+
+    @property
+    def channel(self):
+        return self._state.get_channel(self.channel_id)
+
+
+class MessageCommand(Message):
+    def __init__(
+            self,
+            *,
+            state: ConnectionState,
+            channel: Union[discord.TextChannel, discord.DMChannel, discord.GroupChannel],
+            data: dict
+    ):
+        super().__init__(state=state, channel=channel, data=data)
+
+        options = self.content.split()
+
+        if len(options) >= 1:
+            self.name = options[0]
+        else:
+            self.name = None
+
+        if len(options) >= 2:
+            self.options = self.content.split()[1:]
+        else:
+            self.options = []
+
+
+class MessageSendable:
+    def __init__(self, state: ConnectionState, channel):
         self._state = state
         self.http = HttpClient(http=self._state.http)
         self.channel = channel
@@ -246,3 +272,95 @@ class Channel:
             for i in files:
                 i.close()
         return ret
+
+
+class MessageEdited(MessageSendable):
+    def __init__(
+            self,
+            *,
+            state: ConnectionState,
+            channel: Union[discord.TextChannel, discord.DMChannel, discord.GroupChannel],
+            data: dict
+    ):
+        super().__init__(state=state, channel=channel)
+        self._func = {}
+        self._state: ConnectionState = state
+        self._data = data
+        for index, func in inspect.getmembers(MessageEdited):
+            if index.startswith("_handler_"):
+                self._func[index] = func
+        self.id: int = int(data['id'])
+        self.channel = channel
+
+    def __getattr__(self, item):
+        if "_handler_" + item in self._func.keys():
+            return getattr(self, "_handler_{0}".format(item))()
+        return self._data.get(item)
+
+    def _handler_webhook_id(self) -> Optional[int]:
+        return getattr(discord.utils, "_get_as_snowflake")(self._data, 'webhook_id')
+
+    def _handler_reactions(self) -> List[discord.Reaction]:
+        return [
+            discord.Reaction(message=self, data=d) for d in self._data.get('reactions', [])
+        ]
+
+    def _handler_embed(self) -> List[discord.Embed]:
+        return [discord.Embed.from_dict(a) for a in self._data.get('embeds', [])]
+
+    def _handler_attachments(self) -> List[discord.Attachment]:
+        return [
+            discord.Attachment(data=a, state=self._state) for a in self._data.get('attachments', [])
+        ]
+
+    def _handler_type(self) -> discord.MessageType:
+        return try_enum(discord.MessageType, self._data.get('type'))
+
+    def _handler_flags(self) -> discord.MessageType:
+        return getattr(discord.MessageFlags, "_from_value")(self._data.get('flags', 0))
+
+    def _handler_stickers(self) -> List[discord.StickerItem]:
+        return [
+            discord.StickerItem(data=d, state=self._state) for d in self._data.get('sticker_items', [])
+        ]
+
+    def _handler_guild(self) -> Optional[discord.Guild]:
+        return getattr(self.channel, "guild", getattr(self._state, "_get_guild")(self._data.get('guild_id')))
+
+    def _handler_components(self) -> List[discord.StickerItem]:
+        return from_payload(self._data.get("components", []))
+
+    def _handler_created_at(self) -> datetime:
+        return discord.utils.snowflake_time(self.id)
+
+    def _handler_edited_at(self) -> Optional[datetime]:
+        return discord.utils.parse_time(self._data.get('edited_timestamp'))
+
+    def _handler_author(self) -> Union[discord.Member, discord.User]:
+        author = self._state.store_user(self._data.get("author"))
+        if isinstance(self.guild, discord.Guild):
+            found = self.guild.get_member(author.id)
+            if found is not None:
+                author = found
+        return author
+
+    def _handle_mentions(self) -> List[Union[discord.Member, discord.User]]:
+        mentions = []
+        guild = self.guild
+        state = self._state
+        if not isinstance(guild, discord.Guild):
+            mentions = [state.store_user(m) for m in self._data.get('mentions', [])]
+        return mentions
+
+    def _handle_mention_roles(self) -> List[discord.Role]:
+        role_mentions = []
+        if isinstance(self.guild, discord.Guild):
+            for role_id in map(int, self._data.get('role_mentions', [])):
+                role = self.guild.get_role(role_id)
+                if role is not None:
+                    role_mentions.append(role)
+        return role_mentions
+
+    def _handler_jump_url(self) -> str:
+        guild_id = getattr(self.guild, 'id', '@me')
+        return f'https://discord.com/channels/{guild_id}/{self.channel.id}/{self.id}'

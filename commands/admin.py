@@ -34,7 +34,7 @@ class Command:
     async def debug(self, ctx):
         list_message = ctx.options
         if len(list_message) < 1:
-            embed = discord.Embed(title="PUBG BOT 도우미", description='사용하실 커맨드를 작성해주세요.', color=self.color)
+            embed = discord.Embed(title="YHAB 도우미", description='사용하실 커맨드를 작성해주세요.', color=self.color)
             await ctx.send(embed=embed)
             return
         cmd = " ".join(list_message[0:])
@@ -89,7 +89,7 @@ class Command:
                 embed.set_field_at(2, name="출력(Type)", value=f"```py\n{type(result)}\n```", inline=False)
                 embed.set_field_at(3, name="소요시간", value=f"```\n{second + microsecond}초\n```", inline=False)
                 await msg.edit(embed=embed)
-                await ctx.send(file=discord.File("eval_result.txt"))
+                await ctx.send(file=discord.File("debug_result.txt"))
         except Exception as e:
             embed.set_field_at(1, name="출력", value=f"```pytb\n{traceback.format_exc()}\n```", inline=False)
             embed.set_field_at(2, name="출력(Type)", value=f"```py\n{type(e)}\n```", inline=False)
