@@ -1,13 +1,17 @@
 import datetime
 
 import discord
+
+from config.config import parser
 from module import commands
 
 
 class Command:
     def __init__(self, bot):
         self.client = bot
-        self.color = 0x0070ff
+        self.color = int(parser.get("Color", "default"), 16)
+        self.error_color = int(parser.get("Color", "error"), 16)
+        self.warning_color = int(parser.get("Color", "warning"), 16)
 
     @commands.command(aliases=['핑'], permission=4)
     async def ping(self, ctx):

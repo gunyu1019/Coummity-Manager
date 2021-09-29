@@ -8,6 +8,7 @@ import traceback
 import discord
 from discord.ext import commands
 
+from config.config import parser
 from module import commands as _command
 from utils.directory import directory
 
@@ -28,13 +29,15 @@ def insert_returns(body):
 class Command:
     def __init__(self, bot):
         self.client = bot
-        self.color = 0x0070ff
+        self.color = int(parser.get("Color", "default"), 16)
+        self.error_color = int(parser.get("Color", "error"), 16)
+        self.warning_color = int(parser.get("Color", "warning"), 16)
 
     @_command.command(aliases=["디버그"], permission=1, interaction=False)
     async def debug(self, ctx):
         list_message = ctx.options
         if len(list_message) < 1:
-            embed = discord.Embed(title="YHAB 도우미", description='사용하실 커맨드를 작성해주세요.', color=self.color)
+            embed = discord.Embed(title="YHAB 도우미", description='사용하실 커맨드를 작성해주세요.', color=self.warning_color)
             await ctx.send(embed=embed)
             return
         cmd = " ".join(list_message[0:])
@@ -101,7 +104,7 @@ class Command:
     async def cmd(self, ctx):
         list_message = ctx.options
         if len(list_message) < 1:
-            embed = discord.Embed(title="PUBG BOT 도우미", description="!!cmd <명령어>\n명령어를 입력해주세요!", color=self.color)
+            embed = discord.Embed(title="YHS-Support 도우미", description="!!cmd <명령어>\n명령어를 입력해주세요!", color=self.color)
             await ctx.send(embed=embed)
             return
         search = " ".join(list_message[0:])
@@ -125,7 +128,7 @@ class Command:
     async def echo(self, ctx):
         list_message = ctx.options
         if len(list_message) < 0:
-            embed = discord.Embed(title='PUBG BOT 도우미', description=f'!!echo <내용>\n알맞게 사용해 주시기 바랍니다.',
+            embed = discord.Embed(title='YHS-Support 도우미', description=f'!!echo <내용>\n알맞게 사용해 주시기 바랍니다.',
                                   color=self.color)
             await ctx.send(embed=embed)
             return
@@ -138,7 +141,7 @@ class Command:
         exts = ["cogs." + file[:-3] for file in os.listdir(f"{directory}/cogs") if file.endswith(".py")]
 
         embed = discord.Embed(
-            title="PUBG BOT",
+            title="YHS-Support",
             description=f"{len(exts)}개의 command와 command.module이 재로딩 중입니다.",
             colour=self.color)
         msg = await ctx.send(embed=embed)
@@ -156,7 +159,7 @@ class Command:
             except commands.ExtensionFailed:
                 e_msg += f"\n{ext}에 오류가 발생하였습니다."
                 err[2] += 1
-        embed = discord.Embed(title="PUBG BOT", description=f"{len(exts)}개의 command가 재로딩 되었습니다.", colour=self.color)
+        embed = discord.Embed(title="YHS-Support", description=f"{len(exts)}개의 command가 재로딩 되었습니다.", colour=self.color)
         if not e_msg == "":
             embed.description += f"```에러로그(cog): {e_msg}```"
         await msg.edit(embed=embed)
