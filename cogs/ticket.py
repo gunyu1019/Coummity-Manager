@@ -186,7 +186,7 @@ class TicketReceive(commands.Cog):
             )
         else:
             # Ticket Mode Not Found (Not Worked)
-            self.ticket_mode_not_found.description = self.ticket_mode_not_found.description.format(ticket_mode=data.mode)
+            self.ticket_mode_not_found.description = self.ticket_mode_not_found.description.format(ticket_mode=mode)
             await context.send(embed=self.ticket_mode_not_found, hidden=True)
             return
 
