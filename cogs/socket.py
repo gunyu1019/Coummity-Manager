@@ -31,7 +31,7 @@ from config.config import parser
 from module.interaction import ApplicationContext, ComponentsContext
 from module.message import MessageCommand, Message
 from module.commands import Command
-from process.discord_exception import inspection, canceled
+from process.discord_exception import canceled
 from utils.directory import directory
 from utils.perm import permission
 
@@ -137,10 +137,6 @@ class SocketReceive(commands.Cog):
             return
         _state.dispatch("command", ctx)
         if permission(_function.permission)(ctx):
-            if parser.getboolean("Inspection", "inspection") and not permission(1)(ctx):
-                await inspection(ctx)
-                return
-
             try:
                 await _function.callback(_function.parents, ctx)
             except Exception as error:
@@ -178,10 +174,10 @@ class SocketReceive(commands.Cog):
                     for idx in reversed(removed):
                         del listeners[idx]
 
-        for event in self.bot.extra_events.get("on_components", []):
+        events = self.bot.extra_events.get("on_components", [])
+        for event in events:
             getattr(self.bot, "_schedule_event")(event, "on_components", components)
-
-        if find_interaction is None:
+        if find_interaction is None and events == []:
             await canceled(components)
         return
 

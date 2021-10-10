@@ -29,6 +29,7 @@ from config.config import parser
 from module.components import ActionRow, Button
 from module.interaction import ComponentsContext
 from module.message import MessageSendable
+from process.ticket import Ticket
 from utils.directory import directory
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ class TicketReceive(commands.Cog):
                         break
 
         if mode == 1:
-            channel = await self.category.create_text_channel(
+            content_channel = channel = await self.category.create_text_channel(
                 name=self.convert_template(
                     name=self.template,
                     guild=context.guild,
@@ -160,8 +161,9 @@ class TicketReceive(commands.Cog):
                     )
                 }
             )
+            _content_channel = _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
         elif mode == 2:
-            channel = await self.category.create_text_channel(
+            content_channel = await self.category.create_text_channel(
                 name=self.convert_template(
                     name=self.template,
                     guild=context.guild,
@@ -184,65 +186,92 @@ class TicketReceive(commands.Cog):
                     )
                 }
             )
+            channel = context.author.dm_channel
+            if channel is None:
+                channel = await context.author.create_dm()
+            channel.permissions_for()
+            _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
+            _content_channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=content_channel)
         else:
             # Ticket Mode Not Found (Not Worked)
             self.ticket_mode_not_found.description = self.ticket_mode_not_found.description.format(ticket_mode=mode)
             await context.send(embed=self.ticket_mode_not_found, hidden=True)
             return
 
+        ticket_client = Ticket(
+            context=context,
+            client=self.bot,
+            channel=_channel,
+            contect_channel=_content_channel
+        )
+        process_message = await ticket_client.selection_menu()
+
         self.ticket.append({
             "type": "ticket",
+            "contect_channel": content_channel.id,
             "channel": channel.id,
             "mode": mode,
             "guild": context.guild.id,
-            "author": context.author.id
+            "author": context.author.id,
+            "process_message_id": process_message.id
         })
 
-        if mode == 1:
-            _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
-        elif mode == 2:
-            channel = context.author.dm_channel
-            if channel is None:
-                channel = await context.author.create_dm()
-            _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
-
-        embed = discord.Embed(colour=self.color)
-        await _channel.send(
-            embed=embed,
-            components=[ActionRow(
-                components=[
-                    Button(
-                        custom_id="ticket_partners",
-                        style=1,
-                        emoji=discord.PartialEmoji(name="\U00000031\U0000FE0F\U000020E3")
-                    ),
-                    Button(
-                        custom_id="ticket_report",
-                        style=1,
-                        emoji=discord.PartialEmoji(name="\U00000032\U0000FE0F\U000020E3")
-                    ),
-                    Button(
-                        custom_id="ticket_project",
-                        style=1,
-                        emoji=discord.PartialEmoji(name="\U00000033\U0000FE0F\U000020E3")
-                    ),
-                    Button(
-                        custom_id="ticket_etc",
-                        style=1,
-                        emoji=discord.PartialEmoji(name="\U00000034\U0000FE0F\U000020E3")
-                    ),
-                    Button(
-                        custom_id="ticket_cancel",
-                        style=1,
-                        emoji=discord.PartialEmoji(name="\U00000035\U0000FE0F\U000020E3")
-                    )
-                ]
-            )]
-        )
         self.ticket_process.description = self.ticket_process.description.format(ticket_channel=channel.mention)
         message = await context.send(embed=self.ticket_process, hidden=True)
         with open(os.path.join(directory, "data", "ticket.json"), "w", encoding='utf-8') as file:
             json.dump(self.ticket, fp=file, indent=4)
+        return
+
+    @commands.Cog.listener()
+    async def on_component(self, context: ComponentsContext):
+        if context.custom_id.startswith("menu_selection"):
+            mode: Optional[int] = None
+            contect_channel_id: Optional[int] = None
+            channel_id: Optional[int] = None
+            guild_id: Optional[int] = None
+            process_message_id: Optional[int] = None
+
+            for _channel_data in self.ticket:
+                if _channel_data.get("channel", 0) == int(context.channel_id):
+                    channel_id = int(_channel_data.get("channel", 0))
+                    guild_id = int(_channel_data.get("guild", 0))
+                    mode = int(_channel_data.get("mode", 0))
+                    contect_channel_id = int(_channel_data.get("contect_channel", 0))
+                    process_message_id = int(_channel_data.get("process_message_id", 0))
+                    break
+            if channel_id is None or channel_id == 0:
+                return
+
+            guild = self.bot.get_guild(guild_id)
+            channel = guild.get_channel(channel_id)
+            contect_channel = guild.get_channel(contect_channel_id)
+            process_message = await channel.fetch_message(process_message_id)
+
+            if mode == 1:
+                _content_channel = _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
+            elif mode == 2:
+                _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
+                _content_channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=contect_channel)
+            else:
+                return
+
+            ticket_client = Ticket(
+                context=context,
+                client=self.bot,
+                channel=_channel,
+                contect_channel=_content_channel
+            )
+
+            _buffer = "menu_selection"
+            len_buffer = len(_buffer)
+            selection_menu = context.custom_id[len_buffer:]
+
+            if hasattr(ticket_client, "menu{}".format(selection_menu)):
+                await discord.utils.maybe_coroutine(
+                    f=getattr(ticket_client, "menu{}".format(selection_menu)),
+                    process_message=process_message
+                )
+            return
         return
 
 
