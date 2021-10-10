@@ -38,6 +38,8 @@ log = logging.getLogger()
 
 class InteractionContext:
     def __init__(self, payload: dict, client: discord.Client):
+        self.prefix: Optional[str] = None
+
         self.client = client
         self.id: int = getattr(discord.utils, "_get_as_snowflake")(payload, "id")
         self.version = payload.get("version")
@@ -66,12 +68,8 @@ class InteractionContext:
         self.deferred = False
         self.responded = False
 
-        self._interaction_data = InteractionData(
-            interaction_token=self.token,
-            interaction_id=self.id,
-            application_id=self.application
-        )
-        self.http = HttpClient(http=self.client.http)
+        data = InteractionData(interaction_token=self.token, interaction_id=self.id, application_id=self.application)
+        self.http = HttpClient(http=self.client.http, data=data)
 
     @staticmethod
     def _get_payload(
@@ -99,11 +97,11 @@ class InteractionContext:
         return payload
 
     async def defer(self, hidden: bool = False):
-        base = {"type": 5}
+        base = {}
         if hidden:
             base["data"] = {"flags": 64}
 
-        await self.http.post_defer_response(payload=base, interaction=self._interaction_data)
+        await self.http.post_defer_response(payload=base)
         self.deferred = True
         return
 
@@ -151,21 +149,18 @@ class InteractionContext:
             form = None
 
         if not self.responded:
-            if files:
+            if files and not self.deferred:
                 await self.defer(hidden=hidden)
 
             if self.deferred:
-                resp = await self.http.edit_initial_response(
-                    payload=payload, form=form, files=files, interaction=self._interaction_data
-                )
+                resp = await self.http.edit_initial_response(payload=payload, form=form, files=files)
+                self.deferred = False
             else:
-                await self.http.post_initial_response(payload=payload, interaction=self._interaction_data)
-                resp = await self.http.get_initial_response(interaction=self._interaction_data)
+                await self.http.post_initial_response(payload=payload)
+                resp = await self.http.get_initial_response()
             self.responded = True
         else:
-            resp = await self.http.post_followup(
-                payload=payload, form=form, files=files, interaction=self._interaction_data
-            )
+            resp = await self.http.post_followup(payload=payload, form=form, files=files)
         ret = Message(state=self._state, channel=self.channel, data=resp)
 
         if files:
@@ -215,14 +210,12 @@ class InteractionContext:
             form = None
 
         if message_id == "@original":
-            resp = await self.http.edit_initial_response(
-                payload=payload, form=form, files=files
-            )
+            resp = await self.http.edit_initial_response(payload=payload, form=form, files=files)
         else:
-            resp = await self.http.edit_followup(
-                message_id, payload=payload, form=form, files=files, interaction=self._interaction_data
-            )
+            resp = await self.http.edit_followup(message_id, payload=payload, form=form, files=files)
         ret = Message(state=self._state, channel=self.channel, data=resp)
+        if self.deferred:
+            self.deferred = False
 
         if files:
             for file in files:
@@ -231,9 +224,9 @@ class InteractionContext:
 
     async def delete(self, message_id="@original"):
         if message_id == "@original":
-            await self.http.delete_initial_response(interaction=self._interaction_data)
+            await self.http.delete_initial_response()
         else:
-            await self.http.delete_followup(message_id, interaction=self._interaction_data)
+            await self.http.delete_followup(message_id)
         return
 
 
@@ -246,36 +239,40 @@ class ApplicationContext(InteractionContext):
         self.application_type = data.get("type")
         self.target_id = data.get("target_id")
         self.name = data.get("name")
-        self.options = {}
-        for option in data.get("options", []):
-            key = option.get("name")
-            value = option.get("value")
-            option_type = option.get("type")
-            if option_type == 3:
-                self.options[key]: str = value
-            elif option_type == 4:
-                self.options[key]: int = value
-            elif option_type == 5:
-                self.options[key] = bool(value)
-            elif option_type == 6:
-                if self.guild is not None:
-                    self.member = self.guild.get_member(value)
+        if self.application_type == 1:
+            self.options = {}
+            for option in data.get("options", []):
+                key = option.get("name")
+                value = option.get("value")
+                option_type = option.get("type")
+                if option_type == 3:
+                    self.options[key]: str = value
+                elif option_type == 4:
+                    self.options[key]: int = value
+                elif option_type == 5:
+                    self.options[key] = bool(value)
+                elif option_type == 6:
+                    if self.guild is not None:
+                        self.member = self.guild.get_member(value)
+                    else:
+                        self.member = client.get_user(value)
+                elif option_type == 7 and self.guild is not None:
+                    self.options[key] = self.guild.get_channel(value)
+                elif option_type == 8:
+                    self.options[key]: discord.Role = self.guild.get_role(value)
+                elif option_type == 10:
+                    self.options[key]: float = float(value)
                 else:
-                    self.member = client.get_user(value)
-            elif option_type == 7 and self.guild is not None:
-                self.options[key] = self.guild.get_channel(value)
-            elif option_type == 8:
-                self.options[key]: discord.Role = self.guild.get_role(value)
-            elif option_type == 10:
-                self.options[key]: float = float(value)
-            else:
-                self.options[key] = value
+                    self.options[key] = value
         self._resolved = data.get("resolved", {})
 
     @property
     def content(self):
-        options = [str(self.options[i]) for i in self.options.keys()]
-        return f"/{self.name} {' '.join(options)}"
+        if self.application_type == 1:
+            options = [str(self.options[i]) for i in self.options.keys()]
+            return f"/{self.name} {' '.join(options)}"
+        else:
+            return f"/{self.name}"
 
     def target(self, target_type, target_id: int = None):
         if target_id is None:
@@ -315,7 +312,7 @@ class ComponentsContext(InteractionContext):
         if hidden:
             base["data"] = {"flags": 64}
 
-        await self.http.post_defer_response(payload=base, interaction=self._interaction_data)
+        await self.http.post_defer_response(payload=base)
         self.deferred = True
         return
 
@@ -367,13 +364,14 @@ class ComponentsContext(InteractionContext):
             if self.deferred:
                 await self.http.edit_message(
                     channel_id=self.channel.id, message_id=self.message.id,
-                    payload=payload, form=form, files=files, interaction=self._interaction_data
+                    payload=payload, form=form, files=files
                 )
+                self.deferred = False
             else:
-                await self.http.post_initial_components_response(payload=payload, interaction=self._interaction_data)
+                await self.http.post_initial_components_response(payload=payload)
             self.responded = True
         else:
-            await self.http.post_followup(payload=payload, form=form, files=files, interaction=self._interaction_data)
+            await self.http.post_followup(payload=payload, form=form, files=files)
 
         if files:
             for i in files:
