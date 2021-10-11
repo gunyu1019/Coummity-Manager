@@ -25,6 +25,7 @@ from module import commands as _command
 from module.interaction import ApplicationContext
 from module.components import ActionRow, Button
 from module.message import MessageSendable, MessageCommand
+from utils.perm import check_perm
 
 
 class Command:
@@ -34,7 +35,7 @@ class Command:
         self.error_color = int(parser.get("Color", "error"), 16)
         self.warning_color = int(parser.get("Color", "warning"), 16)
 
-    @_command.command(name="티켓", permission=1, interaction=False)
+    @_command.command(name="티켓", permission=4, interaction=False)
     async def ticket(self, ctx: Union[ApplicationContext, MessageCommand]):
         option1 = None
         if isinstance(ctx, ApplicationContext):
@@ -43,6 +44,10 @@ class Command:
             option1 = ctx.options[0]
 
         if option1 == "불러오기":
+            if check_perm(ctx=ctx) <= 2:
+                await ctx.send("권한이 부족합니다.")
+                return
+
             channel = MessageSendable(
                 state=getattr(self.bot, "_connection"),
                 channel=ctx.guild.get_channel(parser.getint("Channel", "ticket_channel"))

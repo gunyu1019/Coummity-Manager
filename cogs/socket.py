@@ -19,6 +19,7 @@ along with PUBG BOT.  If not, see <https://www.gnu.org/licenses/>.
 import logging
 import inspect
 import discord
+import json
 import importlib
 import importlib.util
 import os
@@ -74,6 +75,12 @@ class SocketReceive(commands.Cog):
                     if len(attr.aliases) != 0:
                         for alias in attr.aliases:
                             self.commands[alias] = attr
+
+        self.except_ids = list(
+            json.loads(
+                parser.get("Socket", "except_components", fallback="[]")
+            )
+        )
 
     @staticmethod
     def check_interaction(ctx: Union[ApplicationContext, MessageCommand], func: Command):
@@ -147,6 +154,24 @@ class SocketReceive(commands.Cog):
             _state.dispatch("command_permission_error", ctx)
         return
 
+    def check_except(self, custom_id: str) -> bool:
+        result = False
+        for custom in self.except_ids:
+            custom: str
+            if custom.endswith("*"):
+                result = custom_id.startswith(custom)
+                if result:
+                    break
+            elif custom.startswith("*"):
+                result = custom_id.endswith(custom)
+                if result:
+                    break
+            else:
+                result = (custom_id == custom)
+                if result:
+                    break
+        return result
+
     @commands.Cog.listener()
     async def on_interaction_components(self, components: ComponentsContext):
         listeners = getattr(self.bot, "_listeners", {}).get("components", [])
@@ -177,7 +202,7 @@ class SocketReceive(commands.Cog):
         events = self.bot.extra_events.get("on_components", [])
         for event in events:
             getattr(self.bot, "_schedule_event")(event, "on_components", components)
-        if find_interaction is None and events == []:
+        if find_interaction is None and self.check_except(components.custom_id):
             await canceled(components)
         return
 

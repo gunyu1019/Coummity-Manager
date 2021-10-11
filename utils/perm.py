@@ -14,7 +14,7 @@ def is_admin(author):
 
 def check_perm(ctx):
     if ctx.guild is None:
-        return
+        return 4
 
     if is_owner(ctx.author.id, ctx.guild):
         return 1

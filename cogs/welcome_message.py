@@ -47,16 +47,14 @@ class WelcomeMessage(commands.Cog):
         embed = discord.Embed(description="{}님! {}에 오신것을 진심으로 환영합니다!".format(member.mention, guild.name))
         embed.set_author(
             name="{}#{}님 환영합니다!".format(member.name, member.discriminator),
-            icon_url=str(guild.icon_url_as(format="png"))
+            icon_url=str(guild.icon.url)
         )
         embed.set_thumbnail(url=member.avatar.url)
 
-        member_role_id = parser.getint("Role", "member")
-        member_role = guild.get_role(member_role_id)
-        if member_role is not None:
-            await member.add_roles([
-                member_role
-            ])
+        member_role_id = parser.getint("Role", "member", fallback=None)
+        if member_role_id is None:
+            return
+        await member.add_roles(member_role_id)
         await self.channel.send(embed=embed)
         return
 

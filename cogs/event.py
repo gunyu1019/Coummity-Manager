@@ -26,7 +26,7 @@ class Events(commands.Cog):
         await self.bot.change_presence(
             status=discord.Status.online,
             activity=discord.Game(
-                name="오늘도 힘차게 서버를 관리해보자!"
+                name="https://yhs.kr/"
             )
         )
 

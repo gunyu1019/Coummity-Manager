@@ -1,3 +1,11 @@
 import os
 
-directory = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/").replace("/utils", "")
+directory = os.path.join(
+    *(os.path.split(
+    os.path.dirname(
+            os.path.abspath(
+                __file__
+            )
+        )
+    ))[:-1]
+)

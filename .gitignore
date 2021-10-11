@@ -134,6 +134,7 @@ config/config.ini
 # YHS-supporter Logging File & Caching Data
 log/
 data/ticket.json
+data/ticket/
 
 # IDLE(PyCharm) configuration
 .idea/

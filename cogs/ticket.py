@@ -26,9 +26,8 @@ from discord.state import ConnectionState
 from typing import Optional
 
 from config.config import parser
-from module.components import ActionRow, Button
 from module.interaction import ComponentsContext
-from module.message import MessageSendable
+from module.message import MessageSendable, Message
 from process.ticket import Ticket
 from utils.directory import directory
 
@@ -150,8 +149,9 @@ class TicketReceive(commands.Cog):
                     ),
                     context.author: discord.PermissionOverwrite(
                         read_message_history=True,
-                        send_messages=True,
-                        attach_files=True,
+                        send_messages=False,
+                        attach_files=False,
+                        add_reactions=False,
                         view_channel=True
                     ),
                     context.guild.default_role: discord.PermissionOverwrite(
@@ -204,7 +204,7 @@ class TicketReceive(commands.Cog):
             channel=_channel,
             contect_channel=_content_channel
         )
-        process_message = await ticket_client.selection_menu()
+        await ticket_client.selection_menu()
 
         self.ticket.append({
             "type": "ticket",
@@ -213,31 +213,33 @@ class TicketReceive(commands.Cog):
             "mode": mode,
             "guild": context.guild.id,
             "author": context.author.id,
-            "process_message_id": process_message.id
+            "process": False
         })
-
-        self.ticket_process.description = self.ticket_process.description.format(ticket_channel=channel.mention)
-        message = await context.send(embed=self.ticket_process, hidden=True)
+        if mode == 1:
+            self.ticket_process.description = self.ticket_process.description.format(ticket_channel=channel.mention)
+        elif mode == 2:
+            self.ticket_process.description = self.ticket_process.description.format(ticket_channel="1:1 메시지(DM)")
+        await context.send(embed=self.ticket_process, hidden=True)
         with open(os.path.join(directory, "data", "ticket.json"), "w", encoding='utf-8') as file:
             json.dump(self.ticket, fp=file, indent=4)
         return
 
     @commands.Cog.listener()
-    async def on_component(self, context: ComponentsContext):
-        if context.custom_id.startswith("menu_selection"):
+    async def on_components(self, context: ComponentsContext):
+        if context.custom_id.startswith("menu_selection") or context.custom_id.startswith("process_ticket"):
             mode: Optional[int] = None
             contect_channel_id: Optional[int] = None
             channel_id: Optional[int] = None
             guild_id: Optional[int] = None
-            process_message_id: Optional[int] = None
-
-            for _channel_data in self.ticket:
+            # process_message_id: Optional[int] = None
+            index = -1
+            for _index, _channel_data in enumerate(self.ticket):
                 if _channel_data.get("channel", 0) == int(context.channel_id):
+                    index = _index
                     channel_id = int(_channel_data.get("channel", 0))
                     guild_id = int(_channel_data.get("guild", 0))
                     mode = int(_channel_data.get("mode", 0))
                     contect_channel_id = int(_channel_data.get("contect_channel", 0))
-                    process_message_id = int(_channel_data.get("process_message_id", 0))
                     break
             if channel_id is None or channel_id == 0:
                 return
@@ -245,7 +247,6 @@ class TicketReceive(commands.Cog):
             guild = self.bot.get_guild(guild_id)
             channel = guild.get_channel(channel_id)
             contect_channel = guild.get_channel(contect_channel_id)
-            process_message = await channel.fetch_message(process_message_id)
 
             if mode == 1:
                 _content_channel = _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
@@ -262,16 +263,177 @@ class TicketReceive(commands.Cog):
                 contect_channel=_content_channel
             )
 
-            _buffer = "menu_selection"
-            len_buffer = len(_buffer)
-            selection_menu = context.custom_id[len_buffer:]
+            if context.component_type == 2 and context.custom_id.startswith("menu_selection"):
+                _buffer = "menu_selection"
+                len_buffer = len(_buffer)
+                selection_menu = context.custom_id[len_buffer:]
 
-            if hasattr(ticket_client, "menu{}".format(selection_menu)):
-                await discord.utils.maybe_coroutine(
-                    f=getattr(ticket_client, "menu{}".format(selection_menu)),
-                    process_message=process_message
-                )
+                if hasattr(ticket_client, "menu{}".format(selection_menu)):
+                    await discord.utils.maybe_coroutine(
+                        f=getattr(ticket_client, "menu{}".format(selection_menu)),
+                        context=context
+                    )
+            elif context.component_type == 3 and context.custom_id.startswith("menu_selection"):
+                _buffer = "menu_selection"
+                len_buffer = len(_buffer)
+                if len(context.values) == 0:
+                    return
+                value = context.values[0]
+                selection_menu = value[len_buffer:]
+
+                if hasattr(ticket_client, "menu{}".format(selection_menu)):
+                    await discord.utils.maybe_coroutine(
+                        f=getattr(ticket_client, "menu{}".format(selection_menu)),
+                        context=context
+                    )
+            elif context.custom_id.startswith("process_ticket"):
+                _buffer = "process_ticket"
+                len_buffer = len(_buffer)
+                ticket_menu = context.custom_id[len_buffer:]
+                if ticket_menu == "_prev":
+                    await ticket_client.selection_menu(update=True)
+                if ticket_menu == "_start":
+                    await ticket_client.start_chatting()
+                    if mode == 1:
+                        await _content_channel.channel.set_permissions(
+                            context.author,
+                            overwrite=discord.PermissionOverwrite(
+                                send_messages=True,
+                                attach_files=True,
+                                add_reactions=True
+                            )
+                        )
+                    self.ticket[index]["process"] = True
+                    with open(os.path.join(directory, "data", "ticket.json"), "w", encoding='utf-8') as file:
+                        json.dump(self.ticket, fp=file, indent=4)
             return
+        return
+
+    @staticmethod
+    async def send(message: Message, send_func):
+        files = []
+        if len(message.attachments) != 0:
+            for attachment in message.attachments:
+                file = await attachment.to_file()
+                files.append(file)
+        msg = await send_func(
+            content="**{author}**: {message}".format(
+                author=message.author,
+                message=message.content if message.content is not None else ""
+            ),
+            files=None if len(message.attachments) == 0 else files
+        )
+        await message.add_reaction("\U00002705")
+        return msg
+
+    @commands.Cog.listener()
+    async def on_interaction_message(self, message: Message):
+        if message.author.bot:
+            return
+
+        if message.content is not None:
+            if message.content.startswith("#"):
+                await message.add_reaction("\U0000274C")
+                return
+
+        if message.channel.type == discord.ChannelType.private:
+            ticket = None
+            for _data in self.ticket:
+                if _data.get("author", 0) == message.author.id and _data.get("mode") == 2 and _data.get("process"):
+                    ticket = _data
+            if ticket is None:
+                return
+            channel_id = ticket.get("contect_channel")
+            guild_id = ticket.get("guild", 0)
+            channel = self.bot.get_guild(guild_id).get_channel(channel_id)
+            await self.send(message, channel.send)
+        elif message.channel.type == discord.ChannelType.text:
+            ticket = None
+            for _data in self.ticket:
+                if (
+                        _data.get("contect_channel", 0) == message.channel.id and
+                        _data.get("mode") == 2 and
+                        _data.get("process")
+                ):
+                    ticket = _data
+            if ticket is None:
+                return
+            author_id = ticket.get("author")
+            author = message.guild.get_member(author_id)
+            await self.send(message, author.send)
+        return
+
+    @commands.Cog.listener()
+    async def on_ticket_close(
+            self,
+            context: ComponentsContext,
+            backup: bool = True
+    ):
+        ticket = None
+        guild = context.guild
+        for _data in self.ticket:
+            if _data.get("channel") == context.channel.id or _data.get("contect_channel") == context.channel.id:
+                ticket = _data
+        if ticket is None:
+            await context.send(embed=self.ticket_close_not_found)
+            return
+
+        if context.channel.type == discord.ChannelType.private or guild is None:
+            guild = self.bot.get_guild(ticket.get("guild"))
+        author = guild.get_member(ticket.get("author"))
+        channel = guild.get_channel(ticket.get("channel"))
+        contect_channel = guild.get_channel(ticket.get("contect_channel"))
+        mode = ticket.get("mode", -1)
+        if mode == 1:
+            channel: discord.TextChannel
+            await channel.set_permissions(
+                author,
+                overwrite=discord.PermissionOverwrite(
+                    read_message_history=False,
+                    send_messages=False,
+                    view_channel=False
+                )
+            )
+
+        if backup and parser.has_option("Ticket", "logging"):
+            logging_data = "{guild}\n".format(guild=guild.name)
+            async for message in contect_channel.history(oldest_first=True):
+                content = message.content
+                _author = message.author
+                if message.author == self.bot.user and mode == 2:
+                    content = content.lstrip("**{author}**: ".format(author=author))
+
+                if len(message.attachments) != 0:
+                    content += " ({0})".format(", ".join([attachment.url for attachment in message.attachments]))
+
+                if mode == 2 and _author.id == self.bot.user.id:
+                    _author = author
+                logging_data += "[ {datetime} | {author} ]: {content}\n".format(
+                    datetime=message.created_at.strftime("%Y-%m-%d %p %I:%M:%S"),
+                    author=_author, content=content
+                )
+            logging_channel_id = parser.getint("Ticket", "logging")
+            logging_channel = guild.get_channel(logging_channel_id)
+            if logging_channel is None:
+                return
+            with open(
+                    os.path.join(directory, "data", "ticket", "{0}.txt".format(contect_channel.id)),
+                    "w", encoding='utf-8'
+            ) as file:
+                file.write(logging_data)
+            d_file = discord.File(os.path.join(directory, "data", "ticket", "{0}.txt".format(contect_channel.id)))
+            embed = discord.Embed(title="Ticket Logging", colour=0x0080ff)
+            embed.add_field(name="Opener", value=author, inline=True)
+            embed.add_field(name="Closer", value=context.author, inline=True)
+            await logging_channel.send(embed=embed, file=d_file)
+
+        await contect_channel.delete()
+        if not backup and mode == 2:
+            await context.delete()
+        position = self.ticket.index(ticket)
+        self.ticket.pop(position)
+        with open(os.path.join(directory, "data", "ticket.json"), "w", encoding='utf-8') as file:
+            json.dump(self.ticket, fp=file, indent=4)
         return
 
 
