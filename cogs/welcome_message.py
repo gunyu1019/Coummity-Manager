@@ -54,8 +54,11 @@ class WelcomeMessage(commands.Cog):
         member_role_id = parser.getint("Role", "member", fallback=None)
         if member_role_id is None:
             return
-        await member.add_roles(member_role_id)
+        member_role = member.guild.get_role(member_role_id)
+        if member_role is None:
+            return
         await self.channel.send(embed=embed)
+        await member.add_roles(member_role)
         return
 
 
