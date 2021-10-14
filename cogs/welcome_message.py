@@ -32,8 +32,15 @@ class WelcomeMessage(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._connection: ConnectionState = getattr(bot, "_connection")
-        self.channel_discord = self._connection.get_channel(id=parser.getint("Channel", "welcome_message"))
 
+        self.channel_discord = None
+        self.channel = None
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.channel_discord = self._connection.get_channel(
+            id=parser.getint("Channel", "welcome_message", fallback=0)
+        )
         if self.channel_discord is not None:
             self.channel = MessageSendable(
                 state=self._connection,
