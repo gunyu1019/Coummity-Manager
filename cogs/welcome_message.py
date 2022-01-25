@@ -50,22 +50,29 @@ class WelcomeMessage(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         guild: discord.Guild = member.guild
+        if member.bot:
+            bot_role_id = parser.getint("Role", "bot", fallback=None)
+            if bot_role_id is None:
+                return
+            bot_role = member.guild.get_role(bot_role_id)
+            if bot_role is None:
+                return
+            await member.add_roles(bot_role)
+            return
+
+        member_role_id = parser.getint("Role", "member", fallback=None)
+        if member_role_id is not None:
+            member_role = member.guild.get_role(member_role_id)
+            if member_role is not None:
+                await member.add_roles(member_role)
 
         embed = discord.Embed(description="{}님! {}에 오신것을 진심으로 환영합니다!".format(member.mention, guild.name))
         embed.set_author(
             name="{}#{}님 환영합니다!".format(member.name, member.discriminator),
-            icon_url=str(guild.icon.url)
+            icon_url=str(guild.icon_url)
         )
-        embed.set_thumbnail(url=member.avatar.url)
-
-        member_role_id = parser.getint("Role", "member", fallback=None)
-        if member_role_id is None:
-            return
-        member_role = member.guild.get_role(member_role_id)
-        if member_role is None:
-            return
+        embed.set_thumbnail(url=member.avatar_url)
         await self.channel.send(embed=embed)
-        await member.add_roles(member_role)
         return
 
 
