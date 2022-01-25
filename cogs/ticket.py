@@ -22,12 +22,12 @@ import logging
 import os
 import json
 from discord.ext import commands
+from discord.ext import interaction
+from discord.ext.interaction import ActionRow, Button, ComponentsContext, MessageSendable, Message
 from discord.state import ConnectionState
 from typing import Optional
 
 from config.config import parser
-from module.interaction import ComponentsContext
-from module.message import MessageSendable, Message
 from process.ticket import Ticket
 from utils.directory import directory
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class TicketReceive(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: interaction.Client):
         self.bot = bot
         with open(os.path.join(directory, "data", "ticket.json"), "r", encoding='utf-8') as file:
             self.ticket = json.load(fp=file)
@@ -99,7 +99,6 @@ class TicketReceive(commands.Cog):
             number=kwargs.get("count")
         )
 
-    @commands.Cog.listener()
     async def on_ticket(self, context: ComponentsContext):
         mode = 0
         if context.custom_id == "ticket_type1":
@@ -226,6 +225,9 @@ class TicketReceive(commands.Cog):
 
     @commands.Cog.listener()
     async def on_components(self, context: ComponentsContext):
+        if context.custom_id.startswith("ticket"):
+            return await self.on_ticket(context)
+
         if context.custom_id.startswith("menu_selection") or context.custom_id.startswith("process_ticket"):
             mode: Optional[int] = None
             contect_channel_id: Optional[int] = None
@@ -307,6 +309,9 @@ class TicketReceive(commands.Cog):
                     with open(os.path.join(directory, "data", "ticket.json"), "w", encoding='utf-8') as file:
                         json.dump(self.ticket, fp=file, indent=4)
             return
+        return
+
+    async def on_process_ticket(self, ctx: ComponentsContext):
         return
 
     @staticmethod
@@ -436,6 +441,53 @@ class TicketReceive(commands.Cog):
             json.dump(self.ticket, fp=file, indent=4)
         return
 
+    @commands.command()
+    async def ticket(self, ctx):
+        option = ctx.message.content.split()[1:]
+        if len(option) > 0:
+            option1 = option[0]
+        else:
+            return
+
+        if option1 == "불러오기":
+            if 844620551153909760 not in [role.id for role in ctx.author.roles]:
+                await ctx.send("권한이 부족합니다.")
+                return
+
+            channel = MessageSendable(
+                state=getattr(self.bot, "_connection"),
+                channel=ctx.guild.get_channel(parser.getint("Channel", "ticket_channel"))
+            )
+            embed = discord.Embed(title="\U0001F39F 문의하기", colour=self.color)
+            embed.description = (
+                "__**파트너 신청**, **사용자 신고**, **버그 제보**__ 등 "
+                "__**프로젝트**, **커뮤니티**__에 관련되어 개인적으로 건의하거나 문의하고 싶은 사항이 있으시다면, "
+                "아래의 버튼에 있는 티켓을 통하여 문의를 부탁드립니다.\n"
+                "장난식 티켓 생성은 처벌 대상입니다. 자제해주시길 부탁드립니다."
+            )
+            await channel.send(
+                embed=embed,
+                components=[ActionRow(
+                    components=[
+                        Button(
+                            custom_id="ticket_type1",
+                            label="채널 티켓",
+                            style=1,
+                            emoji=discord.PartialEmoji(name="\U0001F39F")
+                        ), Button(
+                            custom_id="ticket_type2",
+                            label="1:1(DM) 티켓",
+                            style=1,
+                            emoji=discord.PartialEmoji(name="\U0001F39F")
+                        )
+                    ]
+                )]
+            )
+        elif option1 == "닫기":
+            self.bot.dispatch("ticket_close", ctx)
+        return
+
 
 def setup(client):
     client.add_cog(TicketReceive(client))
+

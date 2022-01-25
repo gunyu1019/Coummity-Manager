@@ -1,12 +1,10 @@
 import random
+from typing import Union, Optional
+
 import discord
 
 from config.config import parser
-from typing import Union, Optional
-from module.components import ActionRow, Button, Selection, Options
-from module.interaction import ApplicationContext, ComponentsContext
-from module.message import Message, MessageCommand, MessageSendable
-from utils.directory import directory
+from discord.ext.interaction import ActionRow, Button, Selection, Options, ComponentsContext, MessageSendable
 
 
 class Ticket:
@@ -70,7 +68,8 @@ class Ticket:
                 components=[
                     Selection(
                         custom_id="menu_selection",
-                        options=[Options(
+                        options=[
+                            Options(
                             label="사용자 신고",
                             value="menu_selection_1",
                             emoji={
@@ -137,6 +136,15 @@ class Ticket:
                 self.final_btn
             ]
         )
+        if self.contect_channel != self.channel and self.contect_channel is not None:
+            response = await self.context.response()
+            if response is None:
+                return
+            embed = discord.Embed(colour=self.color)
+            embed.title = "\U0001F39F 티켓 내용"
+            embed.add_field(name="", value=self.context.author)
+            await self.contect_channel.send(embed=embed)
+            return
 
     # 사용자 신고
     async def menu_1(

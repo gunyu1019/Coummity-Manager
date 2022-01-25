@@ -9,7 +9,6 @@ import discord
 from discord.ext import commands
 
 from config.config import parser
-from module import commands as _command
 from utils.directory import directory
 
 
@@ -26,14 +25,15 @@ def insert_returns(body):
         insert_returns(body[-1].body)
 
 
-class Command:
+class AdminCommand(commands.Cog):
     def __init__(self, bot):
         self.client = bot
         self.color = int(parser.get("Color", "default"), 16)
         self.error_color = int(parser.get("Color", "error"), 16)
         self.warning_color = int(parser.get("Color", "warning"), 16)
 
-    @_command.command(aliases=["디버그"], permission=1, interaction=False)
+    @commands.command()
+    @commands.has_role(844620551153909760)
     async def debug(self, ctx):
         list_message = ctx.options
         if len(list_message) < 1:
@@ -100,43 +100,8 @@ class Command:
             await msg.edit(embed=embed)
         return
 
-    @_command.command(permission=1, interaction=False)
-    async def cmd(self, ctx):
-        list_message = ctx.options
-        if len(list_message) < 1:
-            embed = discord.Embed(title="YHS-Support 도우미", description="!!cmd <명령어>\n명령어를 입력해주세요!", color=self.color)
-            await ctx.send(embed=embed)
-            return
-        search = " ".join(list_message[0:])
-        proc = await asyncio.create_subprocess_shell(search,
-                                                     stdout=asyncio.subprocess.PIPE,
-                                                     stderr=asyncio.subprocess.PIPE)
-        if platform.system() == "Windows":
-            decode = 'cp949'
-        else:
-            decode = 'UTF-8'
-        stdout, stderr = await proc.communicate()
-        if stderr.decode(decode) == "":
-            embed = discord.Embed(title="cmd", description=stdout.decode(decode), color=self.color)
-            await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(title="에러!", description=stderr.decode(decode), color=self.color)
-            await ctx.send(embed=embed)
-        return
-
-    @_command.command(permission=2, interaction=False)
-    async def echo(self, ctx):
-        list_message = ctx.options
-        if len(list_message) < 0:
-            embed = discord.Embed(title='YHS-Support 도우미', description=f'!!echo <내용>\n알맞게 사용해 주시기 바랍니다.',
-                                  color=self.color)
-            await ctx.send(embed=embed)
-            return
-        answer = " ".join(list_message[0:])
-        await ctx.send(f'{answer}')
-        return
-
-    @_command.command(aliases=['리로드'], permission=2, interaction=False)
+    @commands.command()
+    @commands.has_role(844620551153909760)
     async def reload(self, ctx):
         exts = ["cogs." + file[:-3] for file in os.listdir(f"{directory}/cogs") if file.endswith(".py")]
 
@@ -167,4 +132,4 @@ class Command:
 
 
 def setup(client):
-    return Command(client)
+    client.add_cog(AdminCommand(client))

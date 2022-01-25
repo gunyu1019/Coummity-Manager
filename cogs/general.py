@@ -1,19 +1,19 @@
 import datetime
 
 import discord
+from discord.ext import commands
 
 from config.config import parser
-from module import commands
 
 
-class Command:
+class GeneralCommand(commands.Cog):
     def __init__(self, bot):
         self.client = bot
         self.color = int(parser.get("Color", "default"), 16)
         self.error_color = int(parser.get("Color", "error"), 16)
         self.warning_color = int(parser.get("Color", "warning"), 16)
 
-    @commands.command(aliases=['핑'], permission=4)
+    @commands.command()
     async def ping(self, ctx):
         now = datetime.datetime.utcnow()
         if now > ctx.created_at:
@@ -24,7 +24,8 @@ class Command:
         first_latency = round(self.client.latency * 1000, 2)
         embed = discord.Embed(
             title="Pong!",
-            description=f"클라이언트 핑상태: {first_latency}ms\n응답속도(읽기): {round(response_ping_read * 1000, 2)}ms",
+            description=f"클라이언트 핑상태: {first_latency}ms\n"
+                        f"응답속도(읽기): {round(response_ping_read * 1000, 2)}ms",
             color=self.color)
         msg = await ctx.send(embed=embed)
         now = datetime.datetime.utcnow()
@@ -35,11 +36,13 @@ class Command:
         response_ping_write = float(str(response_ping_w.seconds) + "." + str(response_ping_w.microseconds))
         embed = discord.Embed(
             title="Pong!",
-            description=f"클라이언트 핑상태: {first_latency}ms\n응답속도(읽기/쓰기): {round(response_ping_read * 1000, 2)}ms/{round(response_ping_write * 1000, 2)}ms",
+            description=f"클라이언트 핑상태: {first_latency}ms\n"
+                        f"응답속도(읽기/쓰기): "
+                        f"{round(response_ping_read * 1000, 2)}ms/{round(response_ping_write * 1000, 2)}ms",
             color=self.color)
         await msg.edit(embed=embed)
         return
 
 
 def setup(client):
-    return Command(client)
+    client.add_cog(GeneralCommand(client))

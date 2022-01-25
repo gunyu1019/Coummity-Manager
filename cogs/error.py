@@ -1,7 +1,7 @@
 import logging
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, interaction
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class Error(commands.Cog):
         return f"{tb.tb_frame.f_code.co_filename} ({tb.tb_frame.f_code.co_name}) {tb.tb_lineno}줄\n{self._traceback_msg(tb.tb_next)}"
 
     @commands.Cog.listener()
-    async def on_command_exception(self, ctx, error):
+    async def on_interaction_command_error(self, ctx, error):
         exc_name = type(error)
         exc_list = [str(x) for x in error.args]
 
@@ -54,6 +54,8 @@ class Error(commands.Cog):
             embed = discord.Embed(title="\U000026A0 에러", description="권한이 부족합니다.", color=0xaa0000)
             await ctx.send(embed=embed)
             return
+        ctx.content = ctx.message.content
+        await self.on_interaction_command_error(ctx, error)
 
 
 def setup(client):

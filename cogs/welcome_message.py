@@ -21,9 +21,9 @@ import discord
 import logging
 from discord.ext import commands
 from discord.state import ConnectionState
+from discord.ext.interaction import MessageSendable
 
 from config.config import parser
-from module.message import MessageSendable
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class WelcomeMessage(commands.Cog):
         self.channel_discord = self._connection.get_channel(
             id=parser.getint("Channel", "welcome_message", fallback=0)
         )
-        if self.channel_discord is not None:
+        if self.channel_discord is not None and self.channel is None:
             self.channel = MessageSendable(
                 state=self._connection,
                 channel=self.channel_discord
