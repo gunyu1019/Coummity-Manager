@@ -105,6 +105,8 @@ class TicketReceive(commands.Cog):
             mode = 1
         elif context.custom_id == "ticket_type2":
             mode = 2
+        elif context.custom_id == "ticket_close":
+            await self.ticket_close(context)
 
         for check_ticket in self.ticket:
             if context.author.id == check_ticket.get("author"):
@@ -201,7 +203,8 @@ class TicketReceive(commands.Cog):
             context=context,
             client=self.bot,
             channel=_channel,
-            contect_channel=_content_channel
+            content_channel=_content_channel,
+            ticket_close=self.ticket_close
         )
         await ticket_client.selection_menu()
 
@@ -230,7 +233,7 @@ class TicketReceive(commands.Cog):
 
         if context.custom_id.startswith("menu_selection") or context.custom_id.startswith("process_ticket"):
             mode: Optional[int] = None
-            contect_channel_id: Optional[int] = None
+            content_channel_id: Optional[int] = None
             channel_id: Optional[int] = None
             guild_id: Optional[int] = None
             # process_message_id: Optional[int] = None
@@ -241,20 +244,20 @@ class TicketReceive(commands.Cog):
                     channel_id = int(_channel_data.get("channel", 0))
                     guild_id = int(_channel_data.get("guild", 0))
                     mode = int(_channel_data.get("mode", 0))
-                    contect_channel_id = int(_channel_data.get("contect_channel", 0))
+                    content_channel_id = int(_channel_data.get("contect_channel", 0))
                     break
             if channel_id is None or channel_id == 0:
                 return
 
             guild = self.bot.get_guild(guild_id)
             channel = guild.get_channel(channel_id)
-            contect_channel = guild.get_channel(contect_channel_id)
+            content_channel = guild.get_channel(content_channel_id)
 
             if mode == 1:
                 _content_channel = _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
             elif mode == 2:
                 _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
-                _content_channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=contect_channel)
+                _content_channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=content_channel)
             else:
                 return
 
@@ -262,7 +265,8 @@ class TicketReceive(commands.Cog):
                 context=context,
                 client=self.bot,
                 channel=_channel,
-                contect_channel=_content_channel
+                content_channel=_content_channel,
+                ticket_close=self.ticket_close
             )
 
             if context.component_type == 2 and context.custom_id.startswith("menu_selection"):
@@ -368,8 +372,7 @@ class TicketReceive(commands.Cog):
             await self.send(message, author.send)
         return
 
-    @commands.Cog.listener()
-    async def on_ticket_close(
+    async def ticket_close(
             self,
             context: ComponentsContext,
             backup: bool = True
@@ -455,7 +458,7 @@ class TicketReceive(commands.Cog):
                 return
 
             channel = MessageSendable(
-                state=getattr(self.bot, "_connection"),
+                state=self._connection,
                 channel=ctx.guild.get_channel(parser.getint("Channel", "ticket_channel"))
             )
             embed = discord.Embed(title="\U0001F39F 문의하기", colour=self.color)
@@ -484,7 +487,7 @@ class TicketReceive(commands.Cog):
                 )]
             )
         elif option1 == "닫기":
-            self.bot.dispatch("ticket_close", ctx)
+            await self.ticket_close(ctx)
         return
 
 

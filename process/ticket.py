@@ -1,5 +1,5 @@
 import random
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 
 import discord
 
@@ -13,15 +13,18 @@ class Ticket:
             context: Union[ComponentsContext],
             client: discord.Client,
             channel: MessageSendable,
-            contect_channel: Optional[MessageSendable] = None
+            ticket_close: Optional[Callable] = None,
+            content_channel: Optional[MessageSendable] = None,
     ):
+        self.ticket_close: Optional[Callable] = ticket_close
         self.context = context
         self.client = client
 
         self.channel = channel
-        self.contect_channel = contect_channel or channel
+        self.content_channel = content_channel or channel
 
         self.before_func = None
+        self.section = "???"
 
         self.color = int(parser.get("Color", "default"), 16)
         self.error_color = int(parser.get("Color", "error"), 16)
@@ -136,14 +139,26 @@ class Ticket:
                 self.final_btn
             ]
         )
-        if self.contect_channel != self.channel and self.contect_channel is not None:
-            response = await self.context.response()
-            if response is None:
-                return
+        if self.content_channel != self.channel:
+            # response = await self.context.response()
+            # if response is None:
+            #     return
             embed = discord.Embed(colour=self.color)
             embed.title = "\U0001F39F 티켓 내용"
-            embed.add_field(name="", value=self.context.author)
-            await self.contect_channel.send(embed=embed)
+            embed.add_field(name="사용자: ", value=self.context.author, inline=True)
+            embed.add_field(name="주제: ", value=self.section, inline=True)
+            await self.content_channel.send(
+                embed=embed,
+                components=[
+                    ActionRow(components=[
+                        Button(
+                            custom_id="ticket_close",
+                            label="티켓 종료",
+                            style=4
+                        )
+                    ])
+                ]
+            )
             return
 
     # 사용자 신고
@@ -164,6 +179,7 @@ class Ticket:
             "**__단, 커뮤니티 테러, 도배, DM홍보 등의 다소 심각한 사항은 즉시 관리자를 맨션해주시기 바랍니다.__**"
         )
         embed.set_footer(text="사용자 신고")
+        self.section = "사용자 신고"
         await context.update(
             embed=embed,
             components=[
@@ -264,6 +280,7 @@ class Ticket:
             inline=False
         )
         embed.set_footer(text="파트너 관련 문의 > 디스코드 서버")
+        self.section = "파트너 관련 문의 > 디스코드 서버"
         await context.update(
             embed=embed,
             components=[
@@ -315,6 +332,7 @@ class Ticket:
             inline=False
         )
         embed.set_footer(text="파트너 관련 문의 > 방송인")
+        self.section = "파트너 관련 문의 > 방송인"
         await context.update(
             embed=embed,
             components=[
@@ -359,6 +377,7 @@ class Ticket:
             inline=False
         )
         embed.set_footer(text="파트너 관련 문의 > 웹사이트")
+        self.section = "파트너 관련 문의 > 웹사이트"
         await context.update(
             embed=embed,
             components=[
@@ -381,6 +400,7 @@ class Ticket:
             "아래의 \U00002705를 눌러서 채팅을 시작해주세요"
         )
         embed.set_footer(text="파트너 관련 문의 > 기타")
+        self.section = "파트너 관련 문의 > 기타"
         await context.update(
             embed=embed,
             components=[
@@ -402,6 +422,7 @@ class Ticket:
             "__**오픈 소스 프로젝트 버그 관련 문의는 커뮤니티 보다, 깃허브 Repositories 이슈를 사용하시면, 더 빠르게 처리 됩니다.**__"
         )
         embed.set_footer(text="프로젝트 버그 관련 문의")
+        self.section = "프로젝트 버그 관련 문의"
         await context.update(
             embed=embed,
             components=[
@@ -423,6 +444,7 @@ class Ticket:
             "만약 채팅을 시작하고자 하자면, 아래의 \U00002705를 눌러서 채팅을 시작해주세요."
         )
         embed.set_footer(text="프로젝트 기타 관련 문의")
+        self.section = "프로젝트 기타 관련 문의"
         await context.update(
             embed=embed,
             components=[
@@ -444,6 +466,7 @@ class Ticket:
             "만약 채팅을 시작하고자 하자면, 아래의 \U00002705를 눌러서 채팅을 시작해주세요."
         )
         embed.set_footer(text="건의사항")
+        self.section = "건의사항"
         await context.update(
             embed=embed,
             components=[
@@ -465,6 +488,7 @@ class Ticket:
             "만약 채팅을 시작하고자 하자면, 아래의 \U00002705를 눌러서 채팅을 시작해주세요."
         )
         embed.set_footer(text="기타")
+        self.section = "기타"
         await context.update(
             embed=embed,
             components=[
@@ -487,8 +511,7 @@ class Ticket:
         await context.update(
             embed=embed
         )
-        context.client.dispatch(
-            "ticket_close",
+        await self.ticket_close(
             context=context,
             backup=False
         )

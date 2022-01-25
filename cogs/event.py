@@ -34,18 +34,29 @@ class Events(commands.Cog):
         )
 
     @commands.Cog.listener()
-    async def on_command(self, ctx: ApplicationContext):
+    async def on_interaction_command(self, ctx: ApplicationContext):
         if ctx.guild is not None:
             logger_command.info(f"({ctx.guild} | {ctx.channel} | {ctx.author}) {ctx.content}")
         else:
             logger_command.info(f"(DM채널 | {ctx.author}) {ctx.content}")
 
     @commands.Cog.listener()
+    async def on_command(self, ctx: commands.Context):
+        if not isinstance(ctx, commands.Context):
+            return
+
+        if ctx.guild is not None:
+            logger_command.info(f"({ctx.guild} | {ctx.channel} | {ctx.author}) {ctx.message.content}")
+        else:
+            logger_command.info(f"(DM채널 | {ctx.author}) {ctx.message.content}")
+
+    @commands.Cog.listener()
     async def on_components_cancelled(self, ctx: ComponentsContext):
         if (
                 ctx.custom_id.startswith("menu_selection") or
                 ctx.custom_id.startswith("process_ticket") or
-                ctx.custom_id.startswith("ticket")
+                ctx.custom_id.startswith("ticket") or
+                ctx.custom_id == "developer_room"
         ):
             return
 
