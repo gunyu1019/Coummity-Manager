@@ -304,9 +304,12 @@ class TicketReceive(commands.Cog):
                         await _content_channel.channel.set_permissions(
                             context.author,
                             overwrite=discord.PermissionOverwrite(
+                                read_message_history=True,
                                 send_messages=True,
+                                embed_links=True,
                                 attach_files=True,
-                                add_reactions=True
+                                add_reactions=True,
+                                view_channel=True
                             )
                         )
                     self.ticket[index]["process"] = True
