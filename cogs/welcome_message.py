@@ -23,9 +23,10 @@ from discord.ext import commands
 from discord.state import ConnectionState
 from discord.ext.interaction import MessageSendable
 
-from config.config import parser
+from config.config import get_config
 
 logger = logging.getLogger(__name__)
+parser = get_config()
 
 
 class WelcomeMessage(commands.Cog):

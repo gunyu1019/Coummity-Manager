@@ -27,11 +27,13 @@ from discord.ext.interaction import ActionRow, Button, ComponentsContext, Messag
 from discord.state import ConnectionState
 from typing import Optional
 
-from config.config import parser
+from config.config import get_config
 from process.ticket import Ticket
 from utils.directory import directory
+from utils.exception import get_exception_comment, Level
 
 logger = logging.getLogger(__name__)
+parser = get_config()
 
 
 class TicketReceive(commands.Cog):
@@ -40,34 +42,6 @@ class TicketReceive(commands.Cog):
         with open(os.path.join(directory, "data", "ticket.json"), "r", encoding='utf-8') as file:
             self.ticket = json.load(fp=file)
         self.color = int(parser.get("Color", "default"), 16)
-        self.error_color = int(parser.get("Color", "error"), 16)
-        self.warning_color = int(parser.get("Color", "warning"), 16)
-
-        self.already_ticket_opened = discord.Embed(
-            title="안내(Warning)",
-            description="티켓이 이미 열려있습니다. 만일 티켓이 닫혀있는데, 해당 안내 문구가 나왔을 경우 디스코드 봇 관리자에게 문의해주세요.",
-            color=self.warning_color
-        )
-        self.ticket_mode_not_found = discord.Embed(
-            title="에러(Error)",
-            description="티켓을 생성하는 도중 에러가 발생하였습니다. 자세한 사항은 디스코드 개발자에게 문의해주시기 바랍니다.",
-            color=self.error_color
-        )
-        self.ticket_close_not_found = discord.Embed(
-            title="안내(Warning)",
-            description="닫으시려는 티켓을 찾을 수 없습니다.",
-            color=self.warning_color
-        )
-        self.ticket_process = discord.Embed(
-            title="티켓(Ticket)",
-            description="정상적으로 티켓을 열었습니다. {ticket_channel} 를 참조해주세요.",
-            color=self.color
-        )
-
-        self.already_ticket_opened.description += "\n```WARNING CODE: TICKET-ALREADY-OPENED(01)\n```"
-        self.ticket_close_not_found.description += "```\nWARNING CODE: TICKET-NOT-FOUND\n```"
-        self.ticket_mode_not_found.description += "```\nERROR CODE: TICKET-MODE-NOT-FOUND\n" \
-                                                  "GUILD-TICKET-MODE: {ticket_mode} (0 <= TICKET MODE <= 3)\n```"
 
         self._connection: ConnectionState = getattr(bot, "_connection")
 
@@ -75,6 +49,12 @@ class TicketReceive(commands.Cog):
         self.template = parser.get("Ticket", "template")
         self.channel: Optional[discord.TextChannel] = None
         self.category: Optional[discord.CategoryChannel] = None
+
+        self.ticket_process = discord.Embed(
+            title="티켓(Ticket)",
+            description="정상적으로 티켓을 열었습니다. {ticket_channel} 를 참조해주세요.",
+            color=self.color
+        )
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -88,7 +68,7 @@ class TicketReceive(commands.Cog):
             )
 
     @staticmethod
-    def convert_template(name: str, guild: discord.Guild, member: discord.Member, **kwargs):
+    def conversion_template(name: str, guild: discord.Guild, member: discord.Member, **kwargs):
         return name.format(
             guild=guild.name,
             guild_id=guild.id,
@@ -110,7 +90,10 @@ class TicketReceive(commands.Cog):
 
         for check_ticket in self.ticket:
             if context.author.id == check_ticket.get("author"):
-                await context.send(embed=self.already_ticket_opened, hidden=True)
+                await context.send(
+                    embed=get_exception_comment(Level.Warning, "TICKET-ALREADY-OPENED"),
+                    hidden=True
+                )
                 return
 
         count = None
@@ -133,7 +116,7 @@ class TicketReceive(commands.Cog):
 
         if mode == 1:
             content_channel = channel = await self.category.create_text_channel(
-                name=self.convert_template(
+                name=self.conversion_template(
                     name=self.template,
                     guild=context.guild,
                     member=context.author,
@@ -165,7 +148,7 @@ class TicketReceive(commands.Cog):
             _content_channel = _channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=channel)
         elif mode == 2:
             content_channel = await self.category.create_text_channel(
-                name=self.convert_template(
+                name=self.conversion_template(
                     name=self.template,
                     guild=context.guild,
                     member=context.author,
@@ -195,8 +178,10 @@ class TicketReceive(commands.Cog):
             _content_channel = MessageSendable(state=getattr(self.bot, "_connection"), channel=content_channel)
         else:
             # Ticket Mode Not Found (Not Worked)
-            self.ticket_mode_not_found.description = self.ticket_mode_not_found.description.format(ticket_mode=mode)
-            await context.send(embed=self.ticket_mode_not_found, hidden=True)
+            await context.send(
+                embed=get_exception_comment(Level.Error, "TICKET-MODE-NOT-FOUND"),
+                hidden=True
+            )
             return
 
         ticket_client = Ticket(
@@ -274,11 +259,12 @@ class TicketReceive(commands.Cog):
                 len_buffer = len(_buffer)
                 selection_menu = context.custom_id[len_buffer:]
 
-                if hasattr(ticket_client, "menu{}".format(selection_menu)):
-                    await discord.utils.maybe_coroutine(
-                        f=getattr(ticket_client, "menu{}".format(selection_menu)),
-                        context=context
-                    )
+                # if hasattr(ticket_client, "menu{}".format(selection_menu)):
+                await discord.utils.maybe_coroutine(
+                    f=ticket_client.menu_code,
+                    context=context,
+                    code=selection_menu
+                )
             elif context.component_type == 3 and context.custom_id.startswith("menu_selection"):
                 _buffer = "menu_selection"
                 len_buffer = len(_buffer)
@@ -287,18 +273,22 @@ class TicketReceive(commands.Cog):
                 value = context.values[0]
                 selection_menu = value[len_buffer:]
 
-                if hasattr(ticket_client, "menu{}".format(selection_menu)):
-                    await discord.utils.maybe_coroutine(
-                        f=getattr(ticket_client, "menu{}".format(selection_menu)),
-                        context=context
-                    )
+                # if hasattr(ticket_client, "menu{}".format(selection_menu)):
+                await discord.utils.maybe_coroutine(
+                    f=ticket_client.menu_code,
+                    context=context,
+                    code=selection_menu
+                )
             elif context.custom_id.startswith("process_ticket"):
                 _buffer = "process_ticket"
                 len_buffer = len(_buffer)
                 ticket_menu = context.custom_id[len_buffer:]
                 if ticket_menu == "_prev":
                     await ticket_client.selection_menu(update=True)
-                if ticket_menu == "_start":
+                if ticket_menu.startswith("_start"):
+                    ticket_section = ticket_menu.lstrip("_start")
+                    if ticket_section != '':
+                        ticket_client.section = ""
                     await ticket_client.start_chatting()
                     if mode == 1:
                         await _content_channel.channel.set_permissions(
@@ -386,7 +376,10 @@ class TicketReceive(commands.Cog):
             if _data.get("channel") == context.channel.id or _data.get("contect_channel") == context.channel.id:
                 ticket = _data
         if ticket is None:
-            await context.send(embed=self.ticket_close_not_found)
+            await context.send(
+                embed=get_exception_comment(Level.Warning, "TICKET-NOT-FOUND"),
+                hidden=True
+            )
             return
 
         if context.channel.type == discord.ChannelType.private or guild is None:
@@ -496,4 +489,3 @@ class TicketReceive(commands.Cog):
 
 def setup(client):
     client.add_cog(TicketReceive(client))
-

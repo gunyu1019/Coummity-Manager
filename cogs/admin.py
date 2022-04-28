@@ -8,8 +8,10 @@ import traceback
 import discord
 from discord.ext import commands
 
-from config.config import parser
+from config.config import get_config
 from utils.directory import directory
+
+parser = get_config()
 
 
 def insert_returns(body):

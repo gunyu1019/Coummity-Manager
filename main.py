@@ -4,8 +4,11 @@ import json
 import discord
 from discord.ext import interaction
 
-from config.config import parser
+from config.config import get_config
 from config.log_config import log
+
+parser = get_config()
+
 
 if __name__ == "__main__":
     directory = os.path.dirname(os.path.abspath(__file__))

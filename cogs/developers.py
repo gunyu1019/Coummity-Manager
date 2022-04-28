@@ -6,11 +6,11 @@ from discord.ext import interaction
 from discord.state import ConnectionState
 from typing import Optional
 
-from config.config import parser
-from process.ticket import Ticket
+from config.config import get_config
 from utils.directory import directory
 
 logger = logging.getLogger(__name__)
+parser = get_config()
 
 
 class DeveloperReceive(commands.Cog):

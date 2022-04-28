@@ -1,5 +1,5 @@
 import logging
-from config.config import parser
+from config.config import get_config
 
 import discord
 from discord.ext import commands
@@ -9,6 +9,7 @@ from discord.ext.interaction import ApplicationContext, ComponentsContext
 logger = logging.getLogger(__name__)
 logger_command = logging.getLogger(__name__ + ".command")
 logger_guild = logging.getLogger(__name__ + ".guild")
+parser = get_config()
 
 
 class Events(commands.Cog):

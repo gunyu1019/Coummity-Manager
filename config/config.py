@@ -1,23 +1,18 @@
-"""GNU GENERAL PUBLIC LICENSE
-Version 3, 29 June 2007
+import os
 
-Copyright (c) 2021 gunyu1019
+from configparser import ConfigParser
+from utils.directory import directory
 
-PUBG BOT is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
 
-PUBG BOT is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+def get_config(name: str = "config") -> ConfigParser:
+    parser = ConfigParser()
+    parser.read(
+        os.path.join(
+            directory,
+            "config",
+            "{0}.ini".format(name)
+        ),
+        encoding="utf-8"
+    )
+    return parser
 
-You should have received a copy of the GNU General Public License
-along with PUBG BOT.  If not, see <http://www.gnu.org/licenses/>.
-"""
-
-import configparser
-
-parser = configparser.ConfigParser()
-parser.read("config/config.ini", encoding="utf-8")
