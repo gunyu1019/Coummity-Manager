@@ -32,6 +32,7 @@ def get_logger(name: str = None):
 
 
 log = get_logger()
+log.setLevel(logging.DEBUG)
 command = logging.StreamHandler()
 command.setFormatter(logging_format)
 log.addHandler(command)

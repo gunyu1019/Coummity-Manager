@@ -5,7 +5,7 @@ from discord.ext.interaction import ActionRow, Button, Selection, Options, Compo
 from typing import Union, Optional, Callable
 
 from config.config import get_config
-from modules.models.ticket import TicketMenu, TicketChoices
+from modules.models.ticket import TicketChoices
 from utils.directory import directory
 
 parser = get_config()
@@ -32,19 +32,20 @@ class Ticket:
 
         self.before_func = None
         self.section = "None"
+        self.recent_code = "None"
 
         self.color = int(parser.get("Color", "default"), 16)
         self.error_color = int(parser.get("Color", "error"), 16)
         self.warning_color = int(parser.get("Color", "warning"), 16)
 
-        self.prev_btn = Button(
+        self.prev_button = Button(
             custom_id="process_ticket_prev",
             style=1,
             emoji=discord.PartialEmoji(
                 name="\U00002B05"
             )
         )
-        self.start_btn = Button(
+        self.start_button = Button(
             custom_id="process_ticket_start",
             style=1,
             emoji=discord.PartialEmoji(
@@ -53,11 +54,11 @@ class Ticket:
         )
 
     @property
-    def final_btn(self):
+    def final_button(self):
         return ActionRow(
             components=[
-                self.prev_btn,
-                self.start_btn
+                self.prev_button,
+                self.start_button
             ]
         )
 
@@ -105,13 +106,22 @@ class Ticket:
         )
         return message
 
+    @staticmethod
+    def get_page(code: str):
+        page = None
+        indexes = [int(x) for x in code.lstrip('_').split('-')]
+        for index, page_index in enumerate(indexes):
+            if index == 0:
+                page = ticket_menu[page_index].clicked
+            else:
+                page = page.response[page_index]
+        return page
+
     async def start_chatting(self):
-        self.prev_btn.disabled = True
-        self.start_btn.style = 3
+        self.prev_button.disabled = True
+        self.start_button.style = 3
         await self.context.update(
-            components=[
-                self.final_btn
-            ]
+            components=[self.final_button]
         )
         if self.content_channel != self.channel:
             embed = discord.Embed(colour=self.color)
@@ -140,13 +150,8 @@ class Ticket:
         if code == '_cancel':
             await self.menu_cancel(context)
             return
-        indexes = [int(x) for x in code.lstrip('_').split('-')]
-        page = None
-        for index, page_index in enumerate(indexes):
-            if index == 0:
-                page = ticket_menu[page_index].clicked
-            else:
-                page = page.response[page_index]
+        self.recent_code = code
+        page = self.get_page(code)
         embed = discord.Embed(title="\U0001F39F 문의하기", colour=self.color)
         embed.description = page.description
         for field in page.fields:
@@ -155,11 +160,13 @@ class Ticket:
                 value=field['value'] if isinstance(field['value'], str) else "\n".join(field['value']),
                 inline=field.get('inline', False)
             )
+        embed.set_footer(text=" > ".join(page.footer))
 
         if page.callback == 1:
             components = [ActionRow(page.buttons)]
         else:
-            components = [self.final_btn]
+            self.start_button.custom_id += self.recent_code
+            components = [self.final_button]
 
         await context.update(
             embed=embed,

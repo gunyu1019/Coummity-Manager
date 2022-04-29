@@ -28,7 +28,7 @@ class TicketChoices:
 
 
 class TicketMenu:
-    def __init__(self, payload: Dict[str, Any], index: str = 0):
+    def __init__(self, payload: Dict[str, Any], index: str = 0, footer: List[str] = None):
         self.index = index
         self.title = payload['title']
         self._description = payload['description']
@@ -38,6 +38,11 @@ class TicketMenu:
         self.callback = payload['callback']
         self._response = payload.get('response')
 
+        if footer is None:
+            footer = []
+        self.footer = footer[:]
+        self.footer.append(self.title)
+
     @property
     def description(self) -> str:
         if isinstance(self._description, str):
@@ -46,7 +51,10 @@ class TicketMenu:
 
     @property
     def response(self):
-        return [TicketMenu(value, "{}-{}".format(self.index, index)) for index, value in enumerate(self._response)]
+        return [
+            TicketMenu(value, "{}-{}".format(self.index, index), self.footer)
+            for index, value in enumerate(self._response)
+        ]
 
     @property
     def buttons(self) -> List[interaction.Button]:

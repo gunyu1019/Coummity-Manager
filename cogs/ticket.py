@@ -87,6 +87,7 @@ class TicketReceive(commands.Cog):
             mode = 2
         elif context.custom_id == "ticket_close":
             await self.ticket_close(context)
+            return
 
         for check_ticket in self.ticket:
             if context.author.id == check_ticket.get("author"):
@@ -195,7 +196,7 @@ class TicketReceive(commands.Cog):
 
         self.ticket.append({
             "type": "ticket",
-            "contect_channel": content_channel.id,
+            "contact_channel": content_channel.id,
             "channel": channel.id,
             "mode": mode,
             "guild": context.guild.id,
@@ -229,7 +230,7 @@ class TicketReceive(commands.Cog):
                     channel_id = int(_channel_data.get("channel", 0))
                     guild_id = int(_channel_data.get("guild", 0))
                     mode = int(_channel_data.get("mode", 0))
-                    content_channel_id = int(_channel_data.get("contect_channel", 0))
+                    content_channel_id = int(_channel_data.get("contact_channel", 0))
                     break
             if channel_id is None or channel_id == 0:
                 return
@@ -288,7 +289,8 @@ class TicketReceive(commands.Cog):
                 if ticket_menu.startswith("_start"):
                     ticket_section = ticket_menu.lstrip("_start")
                     if ticket_section != '':
-                        ticket_client.section = ""
+                        page = ticket_client.get_page(ticket_section)
+                        ticket_client.section = " > ".join(page.footer)
                     await ticket_client.start_chatting()
                     if mode == 1:
                         await _content_channel.channel.set_permissions(
@@ -337,6 +339,11 @@ class TicketReceive(commands.Cog):
             if message.content.startswith("#"):
                 await message.add_reaction("\U0000274C")
                 return
+            prefix = self.bot.command_prefix
+            if isinstance(prefix, str):
+                prefix = [prefix]
+            if message.content.startswith(tuple(prefix)):
+                return
 
         if message.channel.type == discord.ChannelType.private:
             ticket = None
@@ -345,7 +352,7 @@ class TicketReceive(commands.Cog):
                     ticket = _data
             if ticket is None:
                 return
-            channel_id = ticket.get("contect_channel")
+            channel_id = ticket.get("contact_channel")
             guild_id = ticket.get("guild", 0)
             channel = self.bot.get_guild(guild_id).get_channel(channel_id)
             await self.send(message, channel.send)
@@ -353,7 +360,7 @@ class TicketReceive(commands.Cog):
             ticket = None
             for _data in self.ticket:
                 if (
-                        _data.get("contect_channel", 0) == message.channel.id and
+                        _data.get("contact_channel", 0) == message.channel.id and
                         _data.get("mode") == 2 and
                         _data.get("process")
                 ):
@@ -373,7 +380,7 @@ class TicketReceive(commands.Cog):
         ticket = None
         guild = context.guild
         for _data in self.ticket:
-            if _data.get("channel") == context.channel.id or _data.get("contect_channel") == context.channel.id:
+            if _data.get("channel") == context.channel.id or _data.get("contact_channel") == context.channel.id:
                 ticket = _data
         if ticket is None:
             await context.send(
@@ -386,7 +393,7 @@ class TicketReceive(commands.Cog):
             guild = self.bot.get_guild(ticket.get("guild"))
         author = guild.get_member(ticket.get("author"))
         channel = guild.get_channel(ticket.get("channel"))
-        contect_channel = guild.get_channel(ticket.get("contect_channel"))
+        contact_channel = guild.get_channel(ticket.get("contact_channel"))
         mode = ticket.get("mode", -1)
         if mode == 1:
             channel: discord.TextChannel
@@ -401,7 +408,7 @@ class TicketReceive(commands.Cog):
 
         if backup and parser.has_option("Ticket", "logging"):
             logging_data = "{guild}\n".format(guild=guild.name)
-            async for message in contect_channel.history(oldest_first=True):
+            async for message in contact_channel.history(oldest_first=True):
                 content = message.content
                 _author = message.author
                 if message.author == self.bot.user and mode == 2:
@@ -421,17 +428,17 @@ class TicketReceive(commands.Cog):
             if logging_channel is None:
                 return
             with open(
-                    os.path.join(directory, "data", "ticket", "{0}.txt".format(contect_channel.id)),
+                    os.path.join(directory, "data", "ticket", "{0}.txt".format(contact_channel.id)),
                     "w", encoding='utf-8'
             ) as file:
                 file.write(logging_data)
-            d_file = discord.File(os.path.join(directory, "data", "ticket", "{0}.txt".format(contect_channel.id)))
+            d_file = discord.File(os.path.join(directory, "data", "ticket", "{0}.txt".format(contact_channel.id)))
             embed = discord.Embed(title="Ticket Logging", colour=0x0080ff)
-            embed.add_field(name="Opener", value=author, inline=True)
-            embed.add_field(name="Closer", value=context.author, inline=True)
+            embed.add_field(name="사용자", value=author, inline=True)
+            embed.add_field(name="담당자", value=context.author, inline=True)
             await logging_channel.send(embed=embed, file=d_file)
 
-        await contect_channel.delete()
+        await contact_channel.delete()
         if not backup and mode == 2:
             await context.delete()
         position = self.ticket.index(ticket)
