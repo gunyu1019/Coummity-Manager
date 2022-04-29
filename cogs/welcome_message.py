@@ -129,9 +129,10 @@ class WelcomeMessage(commands.Cog):
             icon_url=str(guild.icon_url)
         )
         embed.set_thumbnail(url=member.avatar_url)
-        embed.set_footer(
-            text="가입 경로: {}".format(", ".join(footer_invite))
-        )
+        if len(footer_invite) == 0:
+            embed.set_footer(text="가입 경로: 존재하지 않습니다.")
+        else:
+            embed.set_footer(text="가입 경로: {}".format(", ".join(footer_invite)))
         await self.channel.send(embed=embed)
         return
 

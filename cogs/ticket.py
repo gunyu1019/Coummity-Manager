@@ -192,7 +192,15 @@ class TicketReceive(commands.Cog):
             content_channel=_content_channel,
             ticket_close=self.ticket_close
         )
-        await ticket_client.selection_menu()
+        try:
+            await ticket_client.selection_menu()
+        except discord.Forbidden:
+            await context.send(
+                embed=get_exception_comment(Level.Warning, "TICKET-FORBIDDEN-DM"),
+                hidden=True
+            )
+            await content_channel.delete(reason="사용자 권한 오류: Forbidden")
+            return
 
         self.ticket.append({
             "type": "ticket",
