@@ -130,6 +130,7 @@ dmypy.json
 
 # YHS-supporter configuration
 config/config.ini
+config/labeling.ini
 
 # YHS-supporter Logging File & Caching Data
 log/
