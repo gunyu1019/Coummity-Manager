@@ -1,6 +1,6 @@
 <h1 align="center">Developer Space Coummity-Manager</h1>
 <p align="center">
-    <img src="https://img.shields.io/badge/release_version-1.1-0080aa?style=flat" alt="Release" >
+    <img src="https://img.shields.io/badge/release_version-1.2-0080aa?style=flat" alt="Release" >
 </p>
 
 # Introduce
@@ -9,4 +9,4 @@
 * Ticket ([Metarix.Ticket](https://github.com/gunyu1019/MBOT))
 * Welcome Message ([Metarix.WelcomeMessage](https://github.com/gunyu1019/MBOT))
 * Invite Labeling 
-* Ban Macro Invite
+* Detect Macro and Ban Auto-User

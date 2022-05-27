@@ -27,7 +27,7 @@ def insert_returns(body):
         insert_returns(body[-1].body)
 
 
-class AdminCommand(commands.Cog):
+class AdminCommand:
     def __init__(self, bot):
         self.client = bot
         self.color = int(parser.get("Color", "default"), 16)
@@ -133,5 +133,5 @@ class AdminCommand(commands.Cog):
         return
 
 
-def setup(client):
-    client.add_cog(AdminCommand(client))
+async def setup(client):
+    client.add_icog(AdminCommand(client))

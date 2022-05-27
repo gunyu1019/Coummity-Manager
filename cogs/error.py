@@ -6,7 +6,7 @@ from discord.ext import commands
 logger = logging.getLogger(__name__)
 
 
-class Error(commands.Cog):
+class Error:
     def __init__(self, bot):
         self.bot = bot
 
@@ -58,5 +58,5 @@ class Error(commands.Cog):
         await self.on_interaction_command_error(ctx, error)
 
 
-def setup(client):
-    client.add_cog(Error(client))
+async def setup(client):
+    client.add_icog(Error(client))

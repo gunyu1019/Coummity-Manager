@@ -8,7 +8,7 @@ from config.config import get_config
 parser = get_config()
 
 
-class GeneralCommand(commands.Cog):
+class GeneralCommand:
     def __init__(self, bot):
         self.client = bot
         self.color = int(parser.get("Color", "default"), 16)
@@ -46,5 +46,5 @@ class GeneralCommand(commands.Cog):
         return
 
 
-def setup(client):
-    client.add_cog(GeneralCommand(client))
+async def setup(client):
+    client.add_icog(GeneralCommand(client))

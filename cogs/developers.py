@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 parser = get_config()
 
 
-class DeveloperReceive(commands.Cog):
+class DeveloperReceive:
     def __init__(self, bot: interaction.Client):
         self.bot = bot
 
@@ -74,6 +74,6 @@ class DeveloperReceive(commands.Cog):
         )
 
 
-def setup(client):
+async def setup(client):
     pass
-    # client.add_cog(DeveloperReceive(client))
+    # client.add_icog(DeveloperReceive(client))

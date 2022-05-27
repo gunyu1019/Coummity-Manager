@@ -1,2 +1,2 @@
-py-cord
+git+https://github.com/Rapptz/discord.py
 git+https://github.com/gunyu1019/discord-extension-interaction

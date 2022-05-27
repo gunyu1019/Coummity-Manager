@@ -12,7 +12,7 @@ logger_guild = logging.getLogger(__name__ + ".guild")
 parser = get_config()
 
 
-class Events(commands.Cog):
+class Events:
     def __init__(self, bot: discord.Client):
         self.bot = bot
 
@@ -75,5 +75,5 @@ class Events(commands.Cog):
         return
 
 
-def setup(client):
-    client.add_cog(Events(client))
+async def setup(client):
+    client.add_icog(Events(client))

@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 parser = get_config()
 
 
-class TicketReceive(commands.Cog):
+class TicketReceive:
     def __init__(self, bot: interaction.Client):
         self.bot = bot
         with open(os.path.join(directory, "data", "ticket.json"), "r", encoding='utf-8') as file:
@@ -388,7 +388,11 @@ class TicketReceive(commands.Cog):
         ticket = None
         guild = context.guild
         for _data in self.ticket:
-            if _data.get("channel") == context.channel.id or _data.get("contact_channel") == context.channel.id:
+            if (
+                    _data.get("channel") == context.channel.id or
+                    _data.get("contact_channel") == context.channel.id or
+                    context.author.id == _data.get("author")
+            ):
                 ticket = _data
         if ticket is None:
             await context.send(
@@ -502,5 +506,5 @@ class TicketReceive(commands.Cog):
         return
 
 
-def setup(client):
-    client.add_cog(TicketReceive(client))
+async def setup(client):
+    client.add_icog(TicketReceive(client))

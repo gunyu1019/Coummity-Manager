@@ -31,7 +31,7 @@ parser = get_config()
 labeling_parser = get_config('labeling')
 
 
-class WelcomeMessage(commands.Cog):
+class WelcomeMessage:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._connection: ConnectionState = getattr(bot, "_connection")
@@ -137,5 +137,5 @@ class WelcomeMessage(commands.Cog):
         return
 
 
-def setup(client):
-    client.add_cog(WelcomeMessage(client))
+async def setup(client):
+    client.add_icog(WelcomeMessage(client))

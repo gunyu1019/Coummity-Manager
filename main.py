@@ -1,6 +1,7 @@
 import os
 import json
 
+import asyncio
 import discord
 from discord.ext import interaction
 
@@ -33,7 +34,9 @@ if __name__ == "__main__":
         )
 
     bot.remove_command("help")
-    bot.load_extensions('cogs', directory)
+    asyncio.run(
+        bot.load_extensions('cogs', directory)
+    )
 
     token = parser.get("DEFAULT", "token")
     bot.run(token)
