@@ -17,18 +17,19 @@ if __name__ == "__main__":
     default_prefixes = list(json.loads(prefixes))
 
     log.info("건유1019 매니저를 불러오는 중입니다.")
+    intent = discord.Intents.all()
     if parser.getboolean("DEFAULT", "AutoShard"):
         log.info("Config 파일에서 AutoShard가 켜져있습니다. AutoShard 기능을 킵니다.")
         bot = interaction.AutoShardedClient(
             command_prefix=default_prefixes,
-            intents=discord.Intents.all(),
+            intents=intent,
             global_sync_command=False,
             enable_debug_events=True
         )
     else:
         bot = interaction.Client(
             command_prefix=default_prefixes,
-            intents=discord.Intents.all(),
+            intents=intent,
             global_sync_command=False,
             enable_debug_events=True
         )

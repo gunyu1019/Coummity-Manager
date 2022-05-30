@@ -126,9 +126,9 @@ class WelcomeMessage:
         )
         embed.set_author(
             name="{}#{}님 환영합니다!".format(member.name, member.discriminator),
-            icon_url=str(guild.icon_url)
+            icon_url=str(guild.icon.url)
         )
-        embed.set_thumbnail(url=member.avatar_url)
+        embed.set_thumbnail(url=member.display_avatar.url)
         if len(footer_invite) == 0:
             embed.set_footer(text="가입 경로: 존재하지 않습니다.")
         else:
